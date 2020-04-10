@@ -9,14 +9,14 @@ import model as model
 import anchor as anchor
 from tqdm import tqdm
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 fx = 240.99
 fy = 240.96
 u0 = 160
 v0 = 120
 
-TestImgFrames = 1596
+TestImgFrames = 702+894
 #validIndex_train = np.load('../data/icvl/validIndex.npy')
 validIndex_test = np.arange(TestImgFrames)
 #TrainImgFrames = len(validIndex_train)
@@ -36,7 +36,7 @@ except OSError:
     pass
 
 
-testingImageDir = '/data/zhangboshen/CODE/Anchor_Pose_fpn/data/ICVL/test_mat/'
+testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/icvl/test_seq_1and2_mat/'
 keypointsfile = '../data/icvl/icvl_keypointsUVD_test.mat'
 center_file = '../data/icvl/icvl_center_test.mat'
 result_file = 'result_ICVL.txt'
@@ -136,7 +136,7 @@ class my_dataloader(torch.utils.data.Dataset):
         self.depth_thres = depth_thres
 
     def __getitem__(self, index):
-
+        print('index=',index)
         depth = scio.loadmat(self.trainingImageDir + str(self.validIndex[index]+1) + '.mat')['img']       
          
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
@@ -154,7 +154,7 @@ test_image_datasets = my_dataloader(testingImageDir, center_test, test_lefttop_p
 test_dataloaders = torch.utils.data.DataLoader(test_image_datasets, batch_size = batch_size,
                                              shuffle = False, num_workers = 8)
       
-def main():   
+def main():
     
     net = model.A2J_model(num_classes = keypointsNumber)
     net.load_state_dict(torch.load(model_dir)) 
@@ -265,6 +265,9 @@ def writeTxt(result, center):
 
 if __name__ == '__main__':
     main()
+    # load saved results
+    # results = np.loadtxt('{}/{}'.format(save_dir, result_file))
+    print('ended')
     
     
       
