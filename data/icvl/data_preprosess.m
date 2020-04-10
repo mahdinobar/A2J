@@ -10,8 +10,13 @@ clc;
 % frameNum = 702+894;
 
 folderpath = "/home/mahdi/HVR/original_datasets/ICVL/Depth/test_seq_2/";
+<<<<<<< HEAD
 filepath = '/home/mahdi/HVR/original_datasets/ICVL/test_seq_1and2.txt';
 frameNum = 702+894;
+=======
+filepath = '/home/mahdi/HVR/original_datasets/ICVL/test_seq_2.txt';
+frameNum = 894;
+>>>>>>> 7bbfb7f55c876ed2fed984f4ed08b4f8b91e2df9
 
 save_dir = './test_seq_2_mat';
 
