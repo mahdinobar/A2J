@@ -10,8 +10,8 @@ clc;
 % frameNum = 702+894;
 
 folderpath = "/home/mahdi/HVR/original_datasets/ICVL/Depth/test_seq_2/";
-filepath = '/home/mahdi/HVR/original_datasets/ICVL/test_seq_2.txt';
-frameNum = 894;
+filepath = '/home/mahdi/HVR/original_datasets/ICVL/test_seq_1and2.txt';
+frameNum = 702+894;
 
 save_dir = './test_seq_2_mat';
 
@@ -28,7 +28,7 @@ while fid <= frameNum
     if exist(strcat(folderpath,img_name), 'file')
         img = imread(strcat(folderpath,img_name));
        
-        fp_save = fopen(strcat(folderpath,img_name(1:size(img_name,2)-3),'bin'),'w');
+        fp_save = fopen(strcat(folderpath,img_name(1:size(img_name,2)-3),'bin'),'r');
         fwrite(fp_save,permute(img,[2,1,3]),'float');
         fclose(fp_save);
         

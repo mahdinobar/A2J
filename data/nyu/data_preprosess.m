@@ -1,18 +1,18 @@
 clc
-clear
+clear all
 
 %% convert original image to mat
 % https://github.com/mks0601/V2V-PoseNet_RELEASE/blob/master/data/NYU/PNG2BIN.m
 
-%train
-dataset_dir = '.\nyu_hand_dataset_v2\train\';
-save_dir = '.\nyu_hand_dataset_v2\Preprossed\train_nyu\';
-tot_frame_num = 72757;
+% %train
+% dataset_dir = '.\nyu_hand_dataset_v2\train\';
+% save_dir = '.\nyu_hand_dataset_v2\Preprossed\train_nyu\';
+% tot_frame_num = 72757;
 
 %test
-% dataset_dir = '.\nyu_hand_dataset_v2\test\';
-% save_dir = '.\nyu_hand_dataset_v2\Preprossed\test_nyu\';
-% tot_frame_num = 8252;
+dataset_dir = '.\nyu_hand_dataset_v2\test\';
+save_dir = '.\nyu_hand_dataset_v2\Preprossed\test_nyu\';
+tot_frame_num = 8252;
 
 kinect_index = 1;
 
