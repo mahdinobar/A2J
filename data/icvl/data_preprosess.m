@@ -9,11 +9,13 @@ clc;
 % filepath = '.\test_icvl\icvl_test_list.txt';
 % frameNum = 702+894;
 
-folderpath = "/home/mahdi/HVR/original_datasets/ICVL/Depth/test_seq_2/";
+folderpath = "/home/mahdi/HVR/original_datasets/ICVL/Depth/";
 filepath = '/home/mahdi/HVR/original_datasets/ICVL/test_seq_1and2.txt';
 frameNum = 702+894;
 
-save_dir = './test_seq_2_mat';
+
+
+save_dir = '/home/mahdi/HVR/git_repos/A2J/data/icvl/test_seq_1and2_mat';
 
 fp = fopen(filepath);
 fid = 1;

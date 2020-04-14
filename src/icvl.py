@@ -262,12 +262,23 @@ def writeTxt(result, center):
 
     f.close()
 
+def compute_mean_err(pred, gt):
+    '''
+    pred: (N, K, 3)
+    gt: (N, K, 3)
+
+    mean_err: (K,)
+    '''
+    N, K = pred.shape[0], pred.shape[1]
+    err_dist = np.sqrt(np.sum((pred - gt)**2, axis=2))  # (N, K)
+    return np.mean(err_dist, axis=0)
 
 if __name__ == '__main__':
     main()
     # load saved results
-    # results = np.loadtxt('{}/{}'.format(save_dir, result_file))
+    results = np.loadtxt('{}/{}'.format(save_dir, result_file))
+    est_3Djoints = results.reshape(1596, 16, 3)
+    gt_3Djoints = test_image_datasets.keypointsUVD
+    print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
+    print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
     print('ended')
-    
-    
-      
