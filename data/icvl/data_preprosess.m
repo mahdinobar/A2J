@@ -13,6 +13,8 @@ folderpath = "/home/mahdi/HVR/original_datasets/ICVL/Depth/test_seq_2/";
 filepath = '/home/mahdi/HVR/original_datasets/ICVL/test_seq_1and2.txt';
 frameNum = 702+894;
 
+
+
 save_dir = './test_seq_2_mat';
 
 fp = fopen(filepath);
