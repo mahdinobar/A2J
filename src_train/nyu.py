@@ -16,7 +16,7 @@ import time
 import datetime
 import random
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 fx = 588.03
 fy = -587.07
@@ -32,6 +32,7 @@ cropHeight = 176
 batch_size = 64
 learning_rate = 0.00035
 Weight_Decay = 1e-4
+learning_rate_decay = 0.1
 nepoch = 35
 RegLossFactor = 3
 spatialFactor = 0.5
@@ -54,15 +55,16 @@ try:
 except OSError:
     pass
 
-trainingImageDir = '/data/zhangboshen/CODE/Anchor_Pose_fpn/data/nyu/train_nyu/'
-testingImageDir = '/data/zhangboshen/CODE/Anchor_Pose_fpn/data/nyu/test_nyu/'  # mat images
+trainingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/train/'
+testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/test/'  # png images
 test_center_file = '../data/nyu/nyu_center_test.mat'
 test_keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat'
 train_center_file = '../data/nyu/nyu_center_train.mat'
 train_keypoint_file = '../data/nyu/nyu_keypointsUVD_train.mat'
 MEAN = np.load('../data/nyu/nyu_mean.npy')
 STD = np.load('../data/nyu/nyu_std.npy')
-model_dir = '../model/NYU.pth'
+# put test error model and result file model at model_dir :
+model_dir = '/home/mahdi/HVR/git_repos/A2J/src_train/result/NYU_batch_64_12345/net_34_wetD_0.0001_depFact_0.5_RegFact_3_rndShft_5.pth'
 result_file = 'result_NYU.txt'
 
 
@@ -221,7 +223,24 @@ class my_dataloader(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
 
-        depth = scio.loadmat(self.ImgDir + str(index+1) + '.mat')['depth']       
+        # depth = scio.loadmat(self.ImgDir + str(index+1) + '.mat')['depth']
+        def loadDepthMap(filename):
+            """
+            Read a depth-map from png raw data of NYU
+            :param filename: file name to load
+            :return: image data of depth image
+            """
+            img = Image.open(filename)
+            # top 8 bits of depth are packed into green channel and lower 8 bits into blue
+            assert len(img.getbands()) == 3
+            r, g, b = img.split()
+            r = np.asarray(r, np.int32)
+            g = np.asarray(g, np.int32)
+            b = np.asarray(b, np.int32)
+            dpt = np.bitwise_or(np.left_shift(g, 8), b)
+            imgdata = np.asarray(dpt, np.float32)
+            return imgdata
+        depth = loadDepthMap(self.ImgDir + 'depth_1_{:07d}'.format(index+1) + '.png')
 
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
             self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres, self.augment)
@@ -252,7 +271,7 @@ def train():
     criterion = anchor.A2J_loss(shape=[cropHeight//16,cropWidth//16],thres = [16.0,32.0],stride=16,\
         spatialFactor=spatialFactor,img_shape=[cropHeight, cropWidth],P_h=None, P_w=None)
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=Weight_Decay)
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.2)
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=learning_rate_decay)
     
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S', \
                     filename=os.path.join(save_dir, 'train.log'), level=logging.INFO)
@@ -446,7 +465,7 @@ def writeTxt(result, center):
     f.close()
 
 if __name__ == '__main__':
-    train()
+    # train()
     test()
     
     
