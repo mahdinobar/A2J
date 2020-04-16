@@ -10,7 +10,7 @@ import model as model
 import anchor as anchor
 from tqdm import tqdm
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 fx = 588.03
 fy = -587.07
@@ -32,7 +32,7 @@ try:
 except OSError:
     pass
 
-testingImageDir = '/data/zhangboshen/CODE/Anchor_Pose_fpn/data/nyu/test_nyu/'  # mat images
+testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/test/'  # png images
 center_file = '../data/nyu/nyu_center_test.mat'
 MEAN = np.load('../data/nyu/nyu_mean.npy')
 STD = np.load('../data/nyu/nyu_std.npy')
@@ -131,7 +131,24 @@ class my_dataloader(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
 
-        depth = scio.loadmat(self.ImgDir + str(index+1) + '.mat')['depth']       
+        # depth = scio.loadmat(self.ImgDir + str(index+1) + '.mat')['depth']
+        def loadDepthMap(filename):
+            """
+            Read a depth-map from png raw data of NYU
+            :param filename: file name to load
+            :return: image data of depth image
+            """
+            img = Image.open(filename)
+            # top 8 bits of depth are packed into green channel and lower 8 bits into blue
+            assert len(img.getbands()) == 3
+            r, g, b = img.split()
+            r = np.asarray(r, np.int32)
+            g = np.asarray(g, np.int32)
+            b = np.asarray(b, np.int32)
+            dpt = np.bitwise_or(np.left_shift(g, 8), b)
+            imgdata = np.asarray(dpt, np.float32)
+            return imgdata
+        depth = loadDepthMap(self.ImgDir + 'depth_1_{:07d}'.format(index+1) + '.png')
 
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
             self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres)
@@ -258,8 +275,24 @@ def writeTxt(result, center):
 
     f.close()
 
+def compute_mean_err(pred, gt):
+    '''
+    pred: (N, K, 3)
+    gt: (N, K, 3)
+
+    mean_err: (K,)
+    '''
+    N, K = pred.shape[0], pred.shape[1]
+    err_dist = np.sqrt(np.sum((pred - gt)**2, axis=2))  # (N, K)
+    return np.mean(err_dist, axis=0)
+
 if __name__ == '__main__':
     main()
-    
-    
-      
+    # load saved results
+    results = np.loadtxt('{}/{}'.format(save_dir, result_file))
+    est_3Djoints = results.reshape(8252, keypointsNumber, 3)
+    gt_3Djoints = test_image_datasets.keypointsUVD
+    print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
+    print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
+    print('ended')
+
