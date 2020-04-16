@@ -36,8 +36,9 @@ testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/test/'  # png images
 center_file = '../data/nyu/nyu_center_test.mat'
 MEAN = np.load('../data/nyu/nyu_mean.npy')
 STD = np.load('../data/nyu/nyu_std.npy')
-model_dir = '../model/NYU.pth'
 keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat'
+# put test error model and result file model at model_dir :
+model_dir = '../model/NYU.pth'
 result_file = 'result_NYU.txt'
 
 
@@ -288,11 +289,11 @@ def compute_mean_err(pred, gt):
 
 if __name__ == '__main__':
     main()
-    # load saved results
-    results = np.loadtxt('{}/{}'.format(save_dir, result_file))
-    est_3Djoints = results.reshape(8252, keypointsNumber, 3)
-    gt_3Djoints = test_image_datasets.keypointsUVD
-    print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
-    print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
-    print('ended')
+    # # load saved results
+    # results = np.loadtxt('{}/{}'.format(save_dir, result_file))
+    # est_3Djoints = results.reshape(8252, keypointsNumber, 3)
+    # gt_3Djoints = test_image_datasets.keypointsUVD
+    # print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
+    # print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
+    # print('ended')
 

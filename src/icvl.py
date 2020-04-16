@@ -275,10 +275,10 @@ def compute_mean_err(pred, gt):
 
 if __name__ == '__main__':
     main()
-    # load saved results
-    results = np.loadtxt('{}/{}'.format(save_dir, result_file))
-    est_3Djoints = results.reshape(1596, 16, 3)
-    gt_3Djoints = test_image_datasets.keypointsUVD
-    print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
-    print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
+    # # load saved results
+    # results = np.loadtxt('{}/{}'.format(save_dir, result_file))
+    # est_3Djoints = results.reshape(1596, 16, 3)
+    # gt_3Djoints = test_image_datasets.keypointsUVD
+    # print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
+    # print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
     print('ended')
