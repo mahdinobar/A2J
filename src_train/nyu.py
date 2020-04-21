@@ -465,7 +465,7 @@ def writeTxt(result, center):
     f.close()
 
 if __name__ == '__main__':
-    train()
+    # train()
     test()
     
     
