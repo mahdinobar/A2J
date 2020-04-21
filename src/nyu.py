@@ -10,7 +10,7 @@ import model as model
 import anchor as anchor
 from tqdm import tqdm
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" # 0 for XPS; 1 for server with two gpus
 
 fx = 588.03
 fy = -587.07
@@ -34,9 +34,14 @@ except OSError:
 
 testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/test/'  # png images
 center_file = '../data/nyu/nyu_center_test.mat'
-MEAN = np.load('../data/nyu/nyu_mean.npy')
-STD = np.load('../data/nyu/nyu_std.npy')
-keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat'
+'''
+ we compute mean/std on training set
+ we first crop the original depth maps according to center points, which give us
+  a hand-centered sub-image, then we compute the mean/std of all of these images.
+'''
+MEAN = np.load('../data/nyu/nyu_mean.npy') # one float
+STD = np.load('../data/nyu/nyu_std.npy') # one float
+keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat' # shape: (K, num_joints, 3)
 # put test error model and result file model at model_dir :
 model_dir = '../model/NYU.pth'
 result_file = 'result_NYU.txt'
@@ -54,8 +59,8 @@ def world2pixel(x, fx, fy, ux, uy):
     return x
     
 
-keypointsUVD_test = scio.loadmat(keypoint_file)['keypoints3D'].astype(np.float32)      
-center_test = scio.loadmat(center_file)['centre_pixel'].astype(np.float32)
+keypointsUVD_test = scio.loadmat(keypoint_file)['keypoints3D'].astype(np.float32)  #shape (K, num_joints, 3)
+center_test = scio.loadmat(center_file)['centre_pixel'].astype(np.float32)  #shape (K, 1, 3)
 
 centre_test_world = pixel2world(center_test.copy(), fx, fy, u0, v0)
 
@@ -151,8 +156,25 @@ class my_dataloader(torch.utils.data.Dataset):
             return imgdata
         depth = loadDepthMap(self.ImgDir + 'depth_1_{:07d}'.format(index+1) + '.png')
 
+# ########################################################################################################################
+#         # plot
+#         import matplotlib.pyplot as plt
+#         import matplotlib
+#
+#         fig, ax = plt.subplots()
+#         ax.imshow(depth, cmap=matplotlib.cm.jet)
+#
+#         ax.scatter(self.center[index, 0, 0], self.center[index, 0, 1], marker='+', c='yellow', s=150,
+#                    label='center')  # initial hand com in IMG
+#
+#         ax.scatter(self.keypointsUVD[index, :, 0], self.keypointsUVD[index, :, 1], marker='o', c='cyan', s=100,
+#                    label='gt joints')  # initial hand com in IMG
+#         plt.show()
+# ########################################################################################################################
+
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
             self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres)
+
 
         return data, label
     
@@ -296,4 +318,3 @@ if __name__ == '__main__':
     # print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
     # print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
     # print('ended')
-

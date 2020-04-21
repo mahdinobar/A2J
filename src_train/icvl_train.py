@@ -18,54 +18,60 @@ import random
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-fx = 588.03
-fy = -587.07
-u0 = 320
-v0 = 240
+fx = 240.99
+fy = 240.96
+u0 = 160
+v0 = 120
 
 # DataHyperParms
-TrainImgFrames = 72757
-TestImgFrames = 8252
-keypointsNumber = 14
+# TrainImgFrames = 331006
+TrainImgFrames = 330933
+TestImgFrames = 702+894
+keypointsNumber = 16
 cropWidth = 176
 cropHeight = 176
 batch_size = 64
 learning_rate = 0.00035
 Weight_Decay = 1e-4
 learning_rate_decay = 0.1
-nepoch = 35
+learning_rate_decay_epoch = 7
+nepoch = 17
 RegLossFactor = 3
 spatialFactor = 0.5
 RandCropShift = 5
 RandshiftDepth = 1
 RandRotate = 180
 RandScale = (1.0, 0.5)
-xy_thres = 110
+xy_thres = 95
 depth_thres = 150
+load_num_workers = 1
 
 randomseed = 12345
 random.seed(randomseed)
 np.random.seed(randomseed)
 torch.manual_seed(randomseed)
 
-save_dir = './result/NYU_batch_64_12345'
+save_dir = './result/ICVL_batch_64_12345'
 
 try:
     os.makedirs(save_dir)
 except OSError:
     pass
 
-trainingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/train/'
-testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/nyu/test/'  # png images
-test_center_file = '../data/nyu/nyu_center_test.mat'
-test_keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat'
-train_center_file = '../data/nyu/nyu_center_train.mat'
-train_keypoint_file = '../data/nyu/nyu_keypointsUVD_train.mat'
-MEAN = np.load('../data/nyu/nyu_mean.npy')
-STD = np.load('../data/nyu/nyu_std.npy')
+trainingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/icvl/Depth/'
+testingImageDir = '/home/mahdi/HVR/git_repos/A2J/data/icvl/test_seq_1and2_mat/'  # mat images
+test_center_file = '../data/icvl/icvl_center_test.mat'
+test_keypoint_file = '../data/icvl/icvl_keypointsUVD_test.mat'
+train_center_file = '/home/mahdi/HVR/git_repos/A2J/data/icvl/center_train_refined.txt' # in 3D coordinates; taken from v2v pretrained based on DPpp
+train_keypoint_file = '/home/mahdi/HVR/git_repos/A2J/data/icvl/train.txt'
+MEAN = np.load('../data/icvl/icvl_mean.npy')
+STD = np.load('../data/icvl/icvl_std.npy')
 # put test error model and result file model at model_dir :
-model_dir = '/home/mahdi/HVR/git_repos/A2J/src_train/result/NYU_batch_64_12345/net_34_wetD_0.0001_depFact_0.5_RegFact_3_rndShft_5.pth'
-result_file = 'result_NYU.txt'
+model_dir = '/home/mahdi/HVR/git_repos/A2J/src_train/result/ICVL_batch_64_12345/net_16_wetD_0.0001_depFact_0.5_RegFact_3_rndShft_5.pth'
+result_file = 'result_ICVL.txt'
+# validIndex_train = np.arange(TrainImgFrames)
+validIndex_train = np.load('/home/mahdi/HVR/git_repos/A2J/data/icvl/validIndex.npy')
+validIndex_test = np.arange(TestImgFrames)
 
 
 def pixel2world(x, fx, fy, ux, uy):
@@ -81,20 +87,22 @@ def world2pixel(x, fx, fy, ux, uy):
 
 
 joint_id_to_name = {
-    0: 'pinky tip',
-    1: 'pinky mid',
-    2: 'ring tip',
-    3: 'ring mid',
-    4: 'middle tip',
-    5: 'middle mid',
-    6: 'index tip',
-    7: 'index mid',
-    8: 'thumb tip',
-    9: 'thumb mid',
-    10: 'thumb root',
-    11: 'wrist back',
-    12: 'wrist',
-    13: 'palm',
+    0: 'Palm',
+    1: 'Thumb root',
+    2: 'Thumb mid',
+    3: 'Thumb tip',
+    4: 'Index root',
+    5: 'Index mid',
+    6: 'Index tip',
+    7: 'Middle root',
+    8: 'Middle mid',
+    9: 'Middle tip',
+    10: 'Ring root',
+    11: 'Ring mid',
+    12: 'Ring tip',
+    13: 'Pinky root',
+    14: 'Pinky mid',
+    15: 'Pinky tip',
 }
 
 ## loading GT keypoints and center points
@@ -114,8 +122,23 @@ centerrightbottom_test[:, 0, 1] = centerrightbottom_test[:, 0, 1] - xy_thres
 test_lefttop_pixel = world2pixel(centerlefttop_test, fx, fy, u0, v0)
 test_rightbottom_pixel = world2pixel(centerrightbottom_test, fx, fy, u0, v0)
 
-keypointsUVD_train = scio.loadmat(train_keypoint_file)['keypoints3D'].astype(np.float32)
-center_train = scio.loadmat(train_center_file)['centre_pixel'].astype(np.float32)
+# keypointsUVD_train = scio.loadmat(train_keypoint_file)['keypoints3D'].astype(np.float32)
+with open(train_keypoint_file) as f:
+    _matrix=[line.split() for line in f]
+train_file_names = np.asarray(_matrix)[:,0]
+keypointsUVD_train = (np.asarray(_matrix)[:,1:]).astype(np.float32)
+keypointsUVD_train = np.reshape(keypointsUVD_train, (keypointsUVD_train.shape[0],keypointsNumber,3))
+del _matrix
+train_file_names = train_file_names[validIndex_train]
+keypointsUVD_train = keypointsUVD_train[validIndex_train]
+
+# center_train = scio.loadmat(train_center_file)['centre_pixel'].astype(np.float32)
+center_train = np.genfromtxt(train_center_file).astype(np.float32)
+center_train[:,1] = -center_train[:,1]
+center_train = center_train[validIndex_train]
+center_train = np.expand_dims(center_train, axis=1)
+center_train = world2pixel(center_train.copy(), fx, fy, u0, v0)
+
 centre_train_world = pixel2world(center_train.copy(), fx, fy, u0, v0)
 
 centerlefttop_train = centre_train_world.copy()
@@ -127,7 +150,10 @@ centerrightbottom_train[:, 0, 0] = centerrightbottom_train[:, 0, 0] + xy_thres
 centerrightbottom_train[:, 0, 1] = centerrightbottom_train[:, 0, 1] - xy_thres
 
 train_lefttop_pixel = world2pixel(centerlefttop_train, fx, fy, u0, v0)
+# train_lefttop_pixel = train_lefttop_pixel[validIndex_train]
+
 train_rightbottom_pixel = world2pixel(centerrightbottom_train, fx, fy, u0, v0)
+# train_rightbottom_pixel = train_rightbottom_pixel[validIndex_train]
 
 
 def transform(img, label, matrix):
@@ -143,8 +169,8 @@ def transform(img, label, matrix):
     return img_out, label_out
 
 
-def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, rightbottom_pixel, xy_thres=90,
-                   depth_thres=75, augment=True):
+def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, rightbottom_pixel, validIndex=None, xy_thres=95,
+                   depth_thres=150, augment=True):
     imageOutputs = np.ones((cropHeight, cropWidth, 1), dtype='float32')
     labelOutputs = np.ones((keypointsNumber, 3), dtype='float32')
 
@@ -165,14 +191,21 @@ def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, r
         RandomOffsetDepth = 0
         matrix = cv2.getRotationMatrix2D((cropWidth / 2, cropHeight / 2), RandomRotate, RandomScale)
 
-    new_Xmin = max(lefttop_pixel[index, 0, 0] + RandomOffset_1, 0)
-    new_Ymin = max(lefttop_pixel[index, 0, 1] + RandomOffset_2, 0)
-    new_Xmax = min(rightbottom_pixel[index, 0, 0] + RandomOffset_3, img.shape[1] - 1)
-    new_Ymax = min(rightbottom_pixel[index, 0, 1] + RandomOffset_4, img.shape[0] - 1)
-
-    imCrop = img[int(new_Ymin):int(new_Ymax), int(new_Xmin):int(new_Xmax)].copy()
-
-    imgResize = cv2.resize(imCrop, (cropWidth, cropHeight), interpolation=cv2.INTER_NEAREST)
+    new_Xmin = max(lefttop_pixel[index,0,0] + RandomOffset_1, 0)
+    new_Ymin = max(rightbottom_pixel[index,0,1] + RandomOffset_2, 0)
+    new_Xmax = min(rightbottom_pixel[index,0,0] + RandomOffset_3, img.shape[1] - 1)
+    new_Ymax = min(lefttop_pixel[index,0,1] + RandomOffset_4, img.shape[0] - 1)
+    try:
+        imCrop = img[int(new_Ymin):int(new_Ymax), int(new_Xmin):int(new_Xmax)].copy()
+        imgResize = cv2.resize(imCrop, (cropWidth, cropHeight), interpolation=cv2.INTER_NEAREST)
+    except Exception:
+        # print('img=', img)
+        # print('imCrop=', imCrop)
+        # print('cropWidth=', cropWidth)
+        # print('cropHeight=', cropHeight)
+        print('corrupt index = ', index)
+        # imCrop = img[int(new_Ymax):int(new_Ymin), int(new_Xmin):int(new_Xmax)].copy()
+        # imgResize = cv2.resize(imCrop, (cropWidth, cropHeight), interpolation=cv2.INTER_NEAREST)
 
     imgResize = np.asarray(imgResize, dtype='float32')  # H*W*C
 
@@ -186,6 +219,8 @@ def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, r
     label_xy = np.ones((keypointsNumber, 2), dtype='float32')
     label_xy[:, 0] = (keypointsUVD[index, :, 0].copy() - new_Xmin) * cropWidth / (new_Xmax - new_Xmin)  # x
     label_xy[:, 1] = (keypointsUVD[index, :, 1].copy() - new_Ymin) * cropHeight / (new_Ymax - new_Ymin)  # y
+    # label_xy[:, 0] = (keypointsUVD[validIndex[index], :, 0].copy() - new_Xmin) * cropWidth / (new_Xmax - new_Xmin)  # x
+    # label_xy[:, 1] = (keypointsUVD[validIndex[index], :, 1].copy() - new_Ymin) * cropHeight / (new_Ymax - new_Ymin)  # y
 
     if augment:
         imgResize, label_xy = transform(imgResize, label_xy, matrix)  ## rotation, scale
@@ -195,6 +230,8 @@ def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, r
     labelOutputs[:, 1] = label_xy[:, 0]
     labelOutputs[:, 0] = label_xy[:, 1]
     labelOutputs[:, 2] = (keypointsUVD[index, :, 2] - center[index][0][2]) * RandomScale  # Z
+    # labelOutputs[:,2] = (keypointsUVD[validIndex[index],:,2] - center[index][0][2])   # Z
+
 
     imageOutputs = np.asarray(imageOutputs)
     imageNCHWOut = imageOutputs.transpose(2, 0, 1)  # [H, W, C] --->>>  [C, H, W]
@@ -205,11 +242,10 @@ def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, r
 
     return data, label
 
-
 ######################   Pytorch dataloader   #################
 class my_dataloader(torch.utils.data.Dataset):
 
-    def __init__(self, ImgDir, center, lefttop_pixel, rightbottom_pixel, keypointsUVD, augment=True):
+    def __init__(self, ImgDir, center, lefttop_pixel, rightbottom_pixel, keypointsUVD, augment=True, train_file_names=None, validIndex=None):
         self.ImgDir = ImgDir
         self.mean = MEAN
         self.std = STD
@@ -221,30 +257,62 @@ class my_dataloader(torch.utils.data.Dataset):
         self.depth_thres = depth_thres
         self.augment = augment
         self.randomErase = random_erasing.RandomErasing(probability=0.5, sl=0.02, sh=0.4, r1=0.3, mean=[0])
+        self.train_file_names = train_file_names
+        self.validIndex = validIndex
 
     def __getitem__(self, index):
+        print('train index=', index)
         # depth = scio.loadmat(self.ImgDir + str(index+1) + '.mat')['depth']
         def loadDepthMap(filename):
             """
-            Read a depth-map from png raw data of NYU
+            Read a depth-map from png raw data of ICVL
             :param filename: file name to load
             :return: image data of depth image
             """
-            img = Image.open(filename)
-            # top 8 bits of depth are packed into green channel and lower 8 bits into blue
-            assert len(img.getbands()) == 3
-            r, g, b = img.split()
-            r = np.asarray(r, np.int32)
-            g = np.asarray(g, np.int32)
-            b = np.asarray(b, np.int32)
-            dpt = np.bitwise_or(np.left_shift(g, 8), b)
-            imgdata = np.asarray(dpt, np.float32)
+            img = Image.open(filename)  # open image
+            imgdata = np.asarray(img, np.float32)
             return imgdata
+        print(self.ImgDir + self.train_file_names[index])
+        depth = loadDepthMap(self.ImgDir + self.train_file_names[index]) # load .png depth map
 
-        depth = loadDepthMap(self.ImgDir + 'depth_1_{:07d}'.format(index + 1) + '.png')
 
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
-                                     self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres,
+                                     self.lefttop_pixel, self.rightbottom_pixel, self.validIndex, self.xy_thres, self.depth_thres,
+                                     self.augment)
+
+
+        if self.augment:
+            data = self.randomErase(data)
+
+        return data, label
+
+    def __len__(self):
+        return len(self.center)
+
+# ######################   Pytorch test dataloader   #################
+class my_dataloader_test(torch.utils.data.Dataset):
+
+    def __init__(self, ImgDir, center, lefttop_pixel, rightbottom_pixel, keypointsUVD, augment=True, validIndex=None):
+
+        self.ImgDir = ImgDir
+        self.mean = MEAN
+        self.std = STD
+        self.center = center
+        self.lefttop_pixel = lefttop_pixel
+        self.rightbottom_pixel = rightbottom_pixel
+        self.keypointsUVD = keypointsUVD
+        self.xy_thres = xy_thres
+        self.depth_thres = depth_thres
+        self.augment = augment
+        self.randomErase = random_erasing.RandomErasing(probability = 0.5, sl = 0.02, sh = 0.4, r1 = 0.3, mean=[0])
+        self.validIndex = validIndex
+
+    def __getitem__(self, index):
+        print('test index=', index)
+        depth = scio.loadmat(self.ImgDir + str(self.validIndex[index] + 1) + '.mat')['img']
+
+        data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
+                                     self.lefttop_pixel, self.rightbottom_pixel, self.validIndex, self.xy_thres, self.depth_thres,
                                      self.augment)
 
         if self.augment:
@@ -255,16 +323,18 @@ class my_dataloader(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.center)
 
-
 train_image_datasets = my_dataloader(trainingImageDir, center_train, train_lefttop_pixel, train_rightbottom_pixel,
-                                     keypointsUVD_train, augment=True)
+                                     keypointsUVD_train, augment=True, train_file_names=train_file_names, validIndex=validIndex_train)
+# import nonechucks as nc # to handle none corrupted samples
+# train_datasets = nc.SafeDataset(train_image_datasets)
 train_dataloaders = torch.utils.data.DataLoader(train_image_datasets, batch_size=batch_size,
-                                                shuffle=True, num_workers=8)
+                                                shuffle=True, num_workers=load_num_workers)
 
-test_image_datasets = my_dataloader(testingImageDir, center_test, test_lefttop_pixel, test_rightbottom_pixel,
-                                    keypointsUVD_test, augment=False)
+
+test_image_datasets = my_dataloader_test(testingImageDir, center_test, test_lefttop_pixel, test_rightbottom_pixel,
+                                    keypointsUVD_test, augment=False, validIndex=validIndex_test)
 test_dataloaders = torch.utils.data.DataLoader(test_image_datasets, batch_size=batch_size,
-                                               shuffle=False, num_workers=8)
+                                               shuffle=False, num_workers=load_num_workers)
 
 
 def train():
@@ -275,7 +345,7 @@ def train():
     criterion = anchor.A2J_loss(shape=[cropHeight // 16, cropWidth // 16], thres=[16.0, 32.0], stride=16, \
                                 spatialFactor=spatialFactor, img_shape=[cropHeight, cropWidth], P_h=None, P_w=None)
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=Weight_Decay)
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=learning_rate_decay)
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=learning_rate_decay_epoch, gamma=learning_rate_decay)
 
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S', \
                         filename=os.path.join(save_dir, 'train.log'), level=logging.INFO)
@@ -409,9 +479,9 @@ def errorCompute(source, target, center):
 
     for i in range(len(Test1_)):
         Xmin = max(lefttop_pixel[i, 0, 0], 0)
-        Ymin = max(lefttop_pixel[i, 0, 1], 0)
-        Xmax = min(rightbottom_pixel[i, 0, 0], 320 * 2 - 1)
-        Ymax = min(rightbottom_pixel[i, 0, 1], 240 * 2 - 1)
+        Ymin = max(rightbottom_pixel[i, 0, 1], 0)
+        Xmax = min(rightbottom_pixel[i, 0, 0], 160 * 2 - 1)
+        Ymax = min(lefttop_pixel[i, 0, 1], 120 * 2 - 1)
 
         Test1[i, :, 0] = Test1_[i, :, 0] * (Xmax - Xmin) / cropWidth + Xmin  # x
         Test1[i, :, 1] = Test1_[i, :, 1] * (Ymax - Ymin) / cropHeight + Ymin  # y
@@ -447,16 +517,15 @@ def writeTxt(result, center):
 
     for i in range(len(result)):
         Xmin = max(lefttop_pixel[i, 0, 0], 0)
-        Ymin = max(lefttop_pixel[i, 0, 1], 0)
-        Xmax = min(rightbottom_pixel[i, 0, 0], 320 * 2 - 1)
-        Ymax = min(rightbottom_pixel[i, 0, 1], 240 * 2 - 1)
+        Ymin = max(rightbottom_pixel[i, 0, 1], 0)
+        Xmax = min(rightbottom_pixel[i, 0, 0], 160 * 2 - 1)
+        Ymax = min(lefttop_pixel[i, 0, 1], 120 * 2 - 1)
 
         resultUVD[i, :, 0] = resultUVD_[i, :, 0] * (Xmax - Xmin) / cropWidth + Xmin  # x
         resultUVD[i, :, 1] = resultUVD_[i, :, 1] * (Ymax - Ymin) / cropHeight + Ymin  # y
         resultUVD[i, :, 2] = result[i, :, 2] + center[i][0][2]
 
     resultReshape = resultUVD.reshape(len(result), -1)
-
     with open(os.path.join(save_dir, result_file), 'w') as f:
         for i in range(len(resultReshape)):
             for j in range(keypointsNumber * 3):
@@ -467,7 +536,7 @@ def writeTxt(result, center):
 
 
 if __name__ == '__main__':
-    train()
+    # train()
     test()
 
 
