@@ -214,6 +214,28 @@ def errorCompute(source, target, center):
         Test1[i,:,1] = Test1_[i,:,1]*(Ymax-Ymin)/cropHeight + Ymin  # y
         Test1[i,:,2] = source[i,:,2] + center[i][0][2]
 
+    # ########################################################################################################################
+    # # plot
+    # import matplotlib.pyplot as plt
+    # import matplotlib
+    #
+    # idepth = test_image_datasets.load_depthmap(0)
+    #
+    # fig, ax = plt.subplots()
+    # ax.imshow(idepth, cmap=matplotlib.cm.jet)
+    #
+    # ax.scatter(center[0][0][0], center[0][0][1], marker='+', c='yellow', s=200,
+    #            label='refined center UVD')  # initial hand com in IMG
+    # ax.scatter(target_[0, :, 0], target_[0, :, 1], marker='o', c='cyan', s=100,
+    #            label='gt joints UVD')  # initial hand com in IMG
+    # ax.scatter(Test1[0, :, 0], Test1[0, :, 1], marker='*', c='magenta', s=100,
+    #            label='predicted joints UVD')  # initial hand com in IMG
+    # ax.legend()
+    # plt.show()
+    # ########################################################################################################################
+
+
+
     labels = pixel2world(target_, fx, fy, u0, v0)
     outputs = pixel2world(Test1.copy(), fx, fy, u0, v0)
 
