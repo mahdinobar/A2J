@@ -43,7 +43,7 @@ RandRotate = 180
 RandScale = (1.0, 0.5)
 xy_thres = 90
 depth_thres = 500
-load_num_workers = 1
+load_num_workers = 8
 
 randomseed = 12345
 random.seed(randomseed)
@@ -62,9 +62,14 @@ except OSError:
 
 ImgDir = '/home/mahdi/HVR/git_repos/A2J/data/MSRA15' # bin images
 center_dir = '/home/mahdi/HVR/git_repos/A2J/data/msra_center' # in 3D coordinates
-
-MEAN = np.load('../data//msra15_mean.npy')
+'''
+ we compute mean/std on training set
+ we first crop the original depth maps according to center points, which give us
+  a hand-centered sub-image, then we compute the mean/std of all of these images.
+'''
+MEAN = np.load('../data/msra15/msra15_mean.npy')
 STD = np.load('../data/msra15/msra15_std.npy')
+
 # put test error model that had been trained here and result file model at model_dir :
 model_dir = ''
 result_file = 'result_MSRA15.txt'
@@ -79,24 +84,29 @@ def world2pixel(x, fx, fy, ux, uy):
     x[:, :, 1] = x[:, :, 1] * fy / x[:, :, 2] + uy
     return x
 
-
+# MSRA15
 joint_id_to_name = {
-    0: 'Palm',
-    1: 'Thumb root',
-    2: 'Thumb mid',
-    3: 'Thumb tip',
-    4: 'Index root',
-    5: 'Index mid',
-    6: 'Index tip',
-    7: 'Middle root',
-    8: 'Middle mid',
-    9: 'Middle tip',
-    10: 'Ring root',
-    11: 'Ring mid',
-    12: 'Ring tip',
-    13: 'Pinky root',
-    14: 'Pinky mid',
-    15: 'Pinky tip',
+    0: 'wrist',
+    1: 'index_mcp',
+    2: 'index_pip',
+    3: 'index_dip',
+    4: 'index_tip',
+    5: 'middle_mcp',
+    6: 'middle_pip',
+    7: 'middle_dip',
+    8: 'middle_tip',
+    9: 'ring_mcp',
+    10: 'ring_pip',
+    11: 'ring_dip',
+    12: 'ring_tip',
+    13: 'little_mcp',
+    14: 'little_pip',
+    15: 'little_dip',
+    16: 'little_tip',
+    17: 'thumb_mcp',
+    18: 'thumb_pip',
+    19: 'thumb_dip',
+    20: 'thumb_tip',
 }
 
 
@@ -113,7 +123,7 @@ def transform(img, label, matrix):
     return img_out, label_out
 
 
-def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, rightbottom_pixel, validIndex=None, xy_thres=95,
+def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, rightbottom_pixel,
                    depth_thres=150, augment=True):
     imageOutputs = np.ones((cropHeight, cropWidth, 1), dtype='float32')
     labelOutputs = np.ones((keypointsNumber, 3), dtype='float32')
@@ -256,14 +266,14 @@ class my_dataloader(torch.utils.data.Dataset):
 
         # self.centerUVD shape is (K,1,3) type float 32 raw center UVD
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.centerUVD, self.mean, self.std,
-                                     self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres)
+                                     self.lefttop_pixel, self.rightbottom_pixel, depth_thres=self.depth_thres, augment=True)
         if self.augment:
             data = self.randomErase(data)
 
         return data, label
 
     def __len__(self):
-        return len(self.center)
+        return len(self.centerUVD)
 
     def _load(self):
         self._compute_dataset_size()
@@ -411,7 +421,7 @@ class my_dataloader_test(torch.utils.data.Dataset):
         depth = load_depthmap(self.names[index], self.img_width, self.img_height, self.max_depth)
         # self.centerUVD shape is (K,1,3) type float 32 raw center UVD
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.centerUVD, self.mean, self.std,
-                                     self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres)
+                                     self.lefttop_pixel, self.rightbottom_pixel, self.depth_thres, augment=False)
 
         return data, label
 

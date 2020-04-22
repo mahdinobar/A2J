@@ -44,7 +44,7 @@ RandRotate = 180
 RandScale = (1.0, 0.5)
 xy_thres = 95
 depth_thres = 150
-load_num_workers = 1
+load_num_workers = 8
 
 randomseed = 12345
 random.seed(randomseed)
@@ -85,25 +85,25 @@ def world2pixel(x, fx, fy, ux, uy):
     x[:, :, 1] = x[:, :, 1] * fy / x[:, :, 2] + uy
     return x
 
-
-joint_id_to_name = {
-    0: 'Palm',
-    1: 'Thumb root',
-    2: 'Thumb mid',
-    3: 'Thumb tip',
-    4: 'Index root',
-    5: 'Index mid',
-    6: 'Index tip',
-    7: 'Middle root',
-    8: 'Middle mid',
-    9: 'Middle tip',
-    10: 'Ring root',
-    11: 'Ring mid',
-    12: 'Ring tip',
-    13: 'Pinky root',
-    14: 'Pinky mid',
-    15: 'Pinky tip',
-}
+#
+# joint_id_to_name = {
+#     0: 'Palm',
+#     1: 'Thumb root',
+#     2: 'Thumb mid',
+#     3: 'Thumb tip',
+#     4: 'Index root',
+#     5: 'Index mid',
+#     6: 'Index tip',
+#     7: 'Middle root',
+#     8: 'Middle mid',
+#     9: 'Middle tip',
+#     10: 'Ring root',
+#     11: 'Ring mid',
+#     12: 'Ring tip',
+#     13: 'Pinky root',
+#     14: 'Pinky mid',
+#     15: 'Pinky tip',
+# }
 
 ## loading GT keypoints and center points
 keypointsUVD_test = scio.loadmat(test_keypoint_file)['keypoints3D'].astype(np.float32)
@@ -536,7 +536,7 @@ def writeTxt(result, center):
 
 
 if __name__ == '__main__':
-    # train()
+    train()
     test()
 
 
