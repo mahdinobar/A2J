@@ -5,12 +5,12 @@ import numpy as np
 import scipy.io as scio
 import os
 from PIL import Image
-import model as model
-import anchor as anchor
+from . import model as model
+from . import anchor as anchor
 from tqdm import tqdm
 import open3d as o3d
 
-def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
+def A2J_predict(idepth, estimator, MEAN, STD, centre_world=None, vis=None):
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     # iPad
@@ -29,20 +29,8 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
     cropWidth = 176
     cropHeight = 176
     batch_size = 1
-    xy_thres = 140
+    xy_thres = 95
     depth_thres = 150
-
-    save_dir = './result/iPad'
-
-    try:
-        os.makedirs(save_dir)
-    except OSError:
-        pass
-
-
-    # center_file = '../data/icvl/icvl_center_test.mat'
-    MEAN = np.load('../data/icvl/icvl_mean.npy')
-    STD = np.load('../data/icvl/icvl_std.npy')
 
 
     def pixel2world(x, fx, fy, ux, uy):
@@ -50,15 +38,11 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
         x[:, :, 1] = (x[:, :, 1] - uy) * x[:, :, 2] / fy
         return x
 
-
     def world2pixel(x, fx, fy, ux, uy):
         x[:, :, 0] = x[:, :, 0] * fx / x[:, :, 2] + ux
         x[:, :, 1] = (x[:, :, 1] * fy / x[:, :, 2] + uy)
         return x
 
-
-    # threshold input depth map
-    idepth[idepth > 760 + 30] = 1000.
 
 
     # _center_test = scio.loadmat(center_file)['centre_pixel'].astype(np.float32)
@@ -97,17 +81,17 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
 
         imCrop = img.copy()[int(new_Ymin):int(new_Ymax), int(new_Xmin):int(new_Xmax)]
         ########################################################################################################################
-        # plot cropped
-        import matplotlib.pyplot as plt
-        import matplotlib
-
-        fig, ax = plt.subplots()
-        ax.imshow(imCrop, cmap=matplotlib.cm.jet)
-
-        ax.legend()
-        plt.show()
+        # # plot cropped
+        # import matplotlib.pyplot as plt
+        # import matplotlib
+        # plt.clf()
+        # fig, ax = plt.subplots()
+        # dm = ax.imshow(imCrop, cmap=matplotlib.cm.jet)
+        # fig.colorbar(dm, ax=ax)
+        # ax.legend()
+        #
+        # plt.show()
         ########################################################################################################################
-
 
         imgResize = cv2.resize(imCrop, (cropWidth, cropHeight), interpolation=cv2.INTER_NEAREST)
 
@@ -157,14 +141,6 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
 
         def __getitem__(self, index):
             print('index=', index)
-            # depth = scio.loadmat(self.trainingImageDir + str(self.validIndex[index] + 1) + '.mat')['img']
-            # depth = np.loadtxt(self.trainingImageDir + 'iPad_1_Depth_1.txt') * 1000  # mm
-            # depth[depth > 760 + 30] = 1000.
-            # _points = depthmap2points(depth, fx, fy, u0, v0)
-            # _points = _points.reshape(_points.shape[0] * _points.shape[1], 3)
-            # _pcl = o3d.geometry.PointCloud()
-            # _pcl.points = o3d.utility.Vector3dVector(_points)
-            # pcl, _ = _pcl.remove_statistical_outlier(nb_neighbors=100, std_ratio=.10)
 
             data = dataPreprocess(index, self.idepth, self.center, self.mean, self.std, self.lefttop_pixel,
                                   self.rightbottom_pixel, self.depth_thres)
@@ -179,10 +155,10 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
     test_image_datasets = my_dataloader(idepth, center_test, test_lefttop_pixel,
                                         test_rightbottom_pixel)
     test_dataloaders = torch.utils.data.DataLoader(test_image_datasets, batch_size=batch_size,
-                                                   shuffle=False, num_workers=8)
+                                                   shuffle=False, num_workers=1)
 
 
-    print('predicting...')
+    print('predicting 3D poses...')
     net = model.A2J_model(num_classes=keypointsNumber)
     net.load_state_dict(torch.load(estimator))
     net = net.cuda()
@@ -192,7 +168,7 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
 
     output = torch.FloatTensor()
 
-    for i, (img) in tqdm(enumerate(test_dataloaders)):
+    for i, (img) in enumerate(test_dataloaders):
         with torch.no_grad():
             img = img.cuda()
             heads = net(img)
@@ -201,10 +177,8 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
 
     result = output.cpu().data.numpy()
 
-    print('here!')
 
-
-    def results(source, center):
+    def results(source, center, vis=None):
 
         Test1_ = source.copy()
         Test1_[:, :, 0] = source[:, :, 1]
@@ -235,26 +209,74 @@ def A2J_predict(idepth, estimator='../model/ICVL.pth', centre_world=None):
             Test1[i, :, 0] = Test1_[i, :, 0] * (Xmax - Xmin) / cropWidth + Xmin  # x
             Test1[i, :, 1] = Test1_[i, :, 1] * (Ymax - Ymin) / cropHeight + Ymin  # y
             Test1[i, :, 2] = source[i, :, 2] + center[i][0][2]
-        ########################################################################################################################
-        # plot
-        import matplotlib.pyplot as plt
-        import matplotlib
+        if vis==True:
+            ########################################################################################################################
+            # plot
+            import matplotlib.pyplot as plt
+            import matplotlib
 
-        fig, ax = plt.subplots()
-        ax.imshow(idepth, cmap=matplotlib.cm.jet)
+            fig, ax = plt.subplots()
+            _dm = ax.imshow(idepth, cmap=matplotlib.cm.jet)
+            fig.colorbar(_dm, ax=ax)
 
-        ax.scatter(center[0][0][0], center[0][0][1], marker='+', c='yellow', s=200,
-                   label='refined center UVD')  # initial hand com in IMG
-        ax.scatter(Test1[0, :, 0], Test1[0, :, 1], marker='*', c='lime', s=100,
-                   label='predicted joints UVD')  # initial hand com in IMG
-        ax.legend()
-        plt.show()
-        ########################################################################################################################
+            ax.scatter(center[0][0][0], center[0][0][1], marker='+', c='black', s=200,
+                       label='refined center UVD')  # initial hand com in IMG
+            ax.scatter(Test1[0, :, 0], Test1[0, :, 1], marker='*', c='lime', s=100,
+                       label='predicted joints UVD')  # initial hand com in IMG
+            for i in range(Test1.shape[1]):
+                ax.annotate(i, (Test1[0, i, 0], Test1[0, i, 1]), weight='bold', color='k')
+            ax.legend()
+            plt.show()
+            ########################################################################################################################
 
         _joints3D = pixel2world(Test1.copy(), fx, fy, u0, v0)
+
+        if vis==True:
+            ########################################################################################################################
+            # plot
+            import matplotlib.pyplot as plt
+            import matplotlib
+            # temporary: must be changed ###########################################################################################
+            fig = plt.figure(figsize=(12, 12))
+            from mpl_toolkits.mplot3d import Axes3D
+            ax = fig.gca(projection='3d')
+
+            def _pixel2world(x, y, z, fx, fy, ux, uy):
+                w_x = (x - ux) * z / fx
+                w_y = -(-y + uy) * z / fy
+                w_z = z
+                return w_x, w_y, w_z
+
+            def _depthmap2points(image, fx, fy, ux, uy):
+                h, w = image.shape
+                x, y = np.meshgrid(np.arange(w) + 1, np.arange(h) + 1)
+                points = np.zeros((h, w, 3), dtype=np.float32)
+                points[:, :, 0], points[:, :, 1], points[:, :, 2] = _pixel2world(x, y, image, fx, fy, ux, uy)
+                return points
+
+            iD_xyz = _depthmap2points(idepth, fx=fx, fy=fy, ux=u0, uy=v0)
+            _input_points_xyz = iD_xyz.reshape(iD_xyz.shape[0] * iD_xyz.shape[1], 3)
+            input_points_xyz = _input_points_xyz[
+                               np.logical_and(_input_points_xyz[:, 2] < np.inf, -np.inf < _input_points_xyz[:, 2]), :]
+            ax.scatter(input_points_xyz[:, 0], input_points_xyz[:, 1], input_points_xyz[:, 2], marker="o", s=.05,
+                       label='depth map')
+
+            # refined_com = np.empty((2, 1))
+            refined_com3D = _joints3D.squeeze()  # estimated joints in 3D
+            # refined_com[0] = refined_com3D[0] / refined_com3D[2] * _fx + _ux
+            # refined_com[1] = refined_com3D[1] / refined_com3D[2] * _fy + _uy
+            ax.scatter(refined_com3D[:, 0], refined_com3D[:, 1], refined_com3D[:, 2], marker='*', c='red', s=150,
+                       label='refined hand center refinenet estimation')  # initial hand com in IMG
+            # ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+
+            # plt.savefig('/home/mahdi/HVR/git_repos/deep-prior-pp/src/cache/iPhone_30hand50wall.png')
+            ax.legend()
+            plt.show()
+            ########################################################################################################################
+
         return _joints3D
 
-    joints3D = results(result, center_test)
+    joints3D = results(result, center_test, vis)
     return joints3D
 
 
@@ -270,17 +292,21 @@ def compute_mean_err(pred, gt):
     err_dist = np.sqrt(np.sum((pred - gt) ** 2, axis=2))  # (N, K)
     return np.mean(err_dist, axis=0)
 
-if __name__ == '__main__':
-    # load input depth map
-    idepth = np.loadtxt('/home/mahdi/HVR/hvr/data/iPad/set_1/iPad_1_Depth_1.txt') * 1000  # mm
-
-    estimator = '../model/ICVL.pth'
-    center=np.load('/home/mahdi/HVR/git_repos/deep-prior-pp/src/eval/iPad_COM_AUGMENT/refined_com3D.npy')
-    joints3D = A2J_predict(idepth, estimator, center.reshape(1,1,3))
-    # # load saved results
-    # results = np.loadtxt('{}/{}'.format(save_dir, result_file))
-    # est_3Djoints = results.reshape(1596, 16, 3)
-    # gt_3Djoints = test_image_datasets.keypointsUVD
-    # print('mean error per joint = {} mm'.format(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:])))
-    # print('overall mean error = {} mm'.format(np.mean(compute_mean_err(est_3Djoints[:,:,:], gt_3Djoints[:,:,:]))))
-    print('ended')
+# if __name__ == '__main__':
+#     # load input depth map
+#     idepth = np.loadtxt('/home/mahdi/HVR/hvr/data/iPad/set_1/iPad_1_Depth_1.txt') * 1000  # mm
+#
+#     from os import path
+#     import sys
+#     sys.path.append(path.abspath('/home/mahdi/HVR/git_repos/A2J/deep_prior_pp/src'))
+#     # from deep_prior_pp.src.predict_refCOM import refCOM
+#     # refined_com3D = refCOM(idepth, refineNet='/home/mahdi/HVR/git_repos/deep-prior-pp/src/eval/iPad_COM_AUGMENT/net_NYU_COM_AUGMENT.pkl', device='iPad')
+#     # print("refined_com3D={}".format(refined_com3D))
+#
+#     refined_com3D=np.load('/home/mahdi/HVR/git_repos/deep-prior-pp/src/eval/iPad_COM_AUGMENT/refined_com3D.npy')
+#     pose_estimator = '/home/mahdi/HVR/git_repos/A2J/model/NYU.pth'
+#     MEAN_estimator = np.load('../data/nyu/nyu_mean.npy')
+#     STD_estimator = np.load('../data/nyu/nyu_std.npy')
+#     joints3D = A2J_predict(idepth, pose_estimator, MEAN_estimator, STD_estimator, refined_com3D.reshape(1,1,3))
+#
+#     print('ended')

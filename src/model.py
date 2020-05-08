@@ -1,6 +1,6 @@
 import torch.nn as nn
 from torch.nn import init
-import resnet
+from . import resnet
 
 class DepthRegressionModel(nn.Module):
     def __init__(self, num_features_in, num_anchors=16, num_classes=15, feature_size=256):

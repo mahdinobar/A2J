@@ -66,6 +66,7 @@ center_dir = '/home/mahdi/HVR/git_repos/A2J/data/msra_center' # in 3D coordinate
  we compute mean/std on training set
  we first crop the original depth maps according to center points, which give us
   a hand-centered sub-image, then we compute the mean/std of all of these images.
+it should be mean and std after cropping and after thresholding depth and centering the resultant.
 '''
 # put test error model that had been trained here and result file model at model_dir :
 model_dir = ''
@@ -328,6 +329,10 @@ def calculator_msra15():
 
 if __name__ == '__main__':
     calculator_msra15()
+    '''WRONG NEED TO BE MODIFIED:  we compute mean/std on training set
+ we first crop the original depth maps according to center points, which give us
+  a hand-centered sub-image, then we compute the mean/std of all of these images.
+it should be mean and std after cropping and after thresholding depth and centering the resultant.'''
 
 
 

@@ -87,6 +87,16 @@ def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, r
     new_Ymax = min(rightbottom_pixel[index,0,1], img.shape[0] - 1)
 
     imCrop = img[int(new_Ymin):int(new_Ymax), int(new_Xmin):int(new_Xmax)].copy()
+    # ########################################################################################################################
+    # # plot
+    # import matplotlib.pyplot as plt
+    # import matplotlib
+    #
+    # fig, ax = plt.subplots()
+    # dm = ax.imshow(imCrop, cmap=matplotlib.cm.jet)
+    # fig.colorbar(dm, ax=ax)
+    # plt.show()
+    # ########################################################################################################################
 
     imgResize = cv2.resize(imCrop, (cropWidth, cropHeight), interpolation=cv2.INTER_NEAREST)
 
@@ -156,21 +166,22 @@ class my_dataloader(torch.utils.data.Dataset):
             return imgdata
         depth = loadDepthMap(self.ImgDir + 'depth_1_{:07d}'.format(index+1) + '.png')
 
-# ########################################################################################################################
-#         # plot
-#         import matplotlib.pyplot as plt
-#         import matplotlib
-#
-#         fig, ax = plt.subplots()
-#         ax.imshow(depth, cmap=matplotlib.cm.jet)
-#
-#         ax.scatter(self.center[index, 0, 0], self.center[index, 0, 1], marker='+', c='yellow', s=150,
-#                    label='center')  # initial hand com in IMG
-#
-#         ax.scatter(self.keypointsUVD[index, :, 0], self.keypointsUVD[index, :, 1], marker='o', c='cyan', s=100,
-#                    label='gt joints')  # initial hand com in IMG
-#         plt.show()
-# ########################################################################################################################
+########################################################################################################################
+        # plot
+        import matplotlib.pyplot as plt
+        import matplotlib
+
+        fig, ax = plt.subplots()
+        dm = ax.imshow(depth, cmap=matplotlib.cm.jet)
+        fig.colorbar(dm, ax=ax)
+
+        ax.scatter(self.center[index, 0, 0], self.center[index, 0, 1], marker='+', c='yellow', s=150,
+                   label='center')  # initial hand com in IMG
+
+        ax.scatter(self.keypointsUVD[index, :, 0], self.keypointsUVD[index, :, 1], marker='o', c='cyan', s=100,
+                   label='gt joints of nyu')  # initial hand com in IMG
+        plt.show()
+########################################################################################################################
 
         data, label = dataPreprocess(index, depth, self.keypointsUVD, self.center, self.mean, self.std, \
             self.lefttop_pixel, self.rightbottom_pixel, self.xy_thres, self.depth_thres)
